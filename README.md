@@ -38,8 +38,8 @@ python 01_Create_Folders.py
 This command will create folders for raw reads, trimmed reads, and for all downstream mapping steps.  
 
 #### 3. Trim Reads (Optional)  
-- If your reads are **already trimmed**, they should be the **fastq.gz** format. They can then be linked (e.g. via *cp -as*) into the newly created folder(s) (<Base_Dir>/Reads/Trimmed_Reads/<SAMPLE_ID>).  
-- For **untrimmed reads**, to use the automated read trimming, link raw reads into your newly created folder(s) (<Base_Dir>/Reads/Raw_Reads/<SAMPLE_ID>) and then run the read trimming script **02_Read_Trimmer.py**.  
+- If your reads are **already trimmed**, they should be the **fastq.gz** format. They can then be linked (e.g. via *cp -as*) into the newly created folder(s) (Snapper_Sniffer/Reads/Trimmed_Reads/<SAMPLE_ID>).  
+- For **untrimmed reads**, to use the automated read trimming, link raw reads into your newly created folder(s) (Snapper_Sniffer/Reads/Raw_Reads/<SAMPLE_ID>) and then run the read trimming script **02_Read_Trimmer.py**.  
   - **Note:** To use this script, *bbduk* and *FastQC* (optional) must be installed in your path.  
   - Script can accept single-end reads, paired-end reads, or a mix of both.  
   - Paired-end reads must have the same file basename, and end with "_1" and "_2"
