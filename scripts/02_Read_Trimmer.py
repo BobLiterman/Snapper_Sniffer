@@ -2,7 +2,7 @@
 
 # This is a wrapper script for trimming reads for use in SISRS
 # This script calls bbduk.sh, which must be installed and in your path
-# All reads for all taxa should be in .fastq.gz format (To change this, the -f/--format option accepts "fastq","fq","fastq.gz [default]","fq.gz"
+# All reads for all samples should be in .fastq.gz format (To change this, the -f/--format option accepts "fastq","fq","fastq.gz [default]","fq.gz"
 # Paired-end read files must be identically basenamed and end in _1/_2
 #
 # Arguments: (1) -p/--processors (OPTIONAL): Number of available processors for FastQC/SLURM; Default: 1
@@ -41,10 +41,10 @@ bbduk_adapter = path.dirname(o.decode('ascii'))+"/resources/adapters.fa"
 raw_read_dir = path.dirname(path.abspath(script_dir))+"/Reads/Raw_Reads"
 trim_read_dir = path.dirname(path.abspath(script_dir))+"/Reads/Trimmed_Reads"
 
-# Find taxa folders within Raw_Reads folder
-raw_read_tax_dirs = sorted(glob(raw_read_dir+"/*/"))
+# Find sample folders within Raw_Reads folder
+raw_read_sample_dirs = sorted(glob(raw_read_dir+"/*/"))
 
-# Get taxon ID file location
+# Process arguments
 my_parser = argparse.ArgumentParser()
 my_parser.add_argument('-p','--processors',action='store',default=1)
 my_parser.add_argument('-f','--format',action='store',default="fastq.gz")
@@ -105,9 +105,9 @@ if run_qc:
         os.mkdir(trim_read_dir+"/fastqcOutput")
     trim_fastqc_output = trim_read_dir+"/fastqcOutput/"
     
-# Ensure Trim Log/FastQC output directories not included in taxa list
-raw_read_tax_dirs = [x for x in raw_read_tax_dirs if not x.endswith('trimOutput/')]
-raw_read_tax_dirs = [x for x in raw_read_tax_dirs if not x.endswith('fastqcOutput/')]
+# Ensure Trim Log/FastQC output directories not included in sample list
+raw_read_sample_dirs = [x for x in raw_read_sample_dirs if not x.endswith('trimOutput/')]
+raw_read_sample_dirs = [x for x in raw_read_sample_dirs if not x.endswith('fastqcOutput/')]
     
 # Run FastQC on all raw read files, using all available processors
 if run_qc:
@@ -126,8 +126,8 @@ if run_qc:
     else:
         os.system(' '.join(raw_fastqc_command))
 
-#For each taxa directory...
-for sample_dir in raw_read_tax_dirs:
+#For each sample directory...
+for sample_dir in raw_read_sample_dirs:
 
     #List all files and set output dir
     files = sorted(glob(sample_dir+"*."+read_format))
