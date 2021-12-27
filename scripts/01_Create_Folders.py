@@ -25,9 +25,9 @@ sample_list = [line.rstrip('\n') for line in open(sample_ID_file)]
 os.mkdir(base_dir+"/Reads")
 os.mkdir(base_dir+"/Reads/Raw_Reads")
 os.mkdir(base_dir+"/Reads/Trimmed_Reads")
-os.mkdir(base_dir+"/SISRS_Run")
+os.mkdir(base_dir+"/Lutjanus_Mapping")
 
 for x in sample_list:
     os.mkdir(base_dir+"/Reads/Raw_Reads/"+x)
     os.mkdir(base_dir+"/Reads/Trimmed_Reads/"+x)
-    os.mkdir(base_dir+"/SISRS_Run/"+x)
+    os.mkdir(base_dir+"/Lutjanus_Mapping/"+x)
