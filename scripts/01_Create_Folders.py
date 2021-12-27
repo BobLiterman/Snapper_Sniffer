@@ -27,7 +27,7 @@ os.mkdir(base_dir+"/Reads/Raw_Reads")
 os.mkdir(base_dir+"/Reads/Trimmed_Reads")
 os.mkdir(base_dir+"/SISRS_Run")
 
-for x in taxa_list:
+for x in sample_list:
     os.mkdir(base_dir+"/Reads/Raw_Reads/"+x)
     os.mkdir(base_dir+"/Reads/Trimmed_Reads/"+x)
     os.mkdir(base_dir+"/SISRS_Run/"+x)
