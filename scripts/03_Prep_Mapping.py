@@ -64,23 +64,35 @@ cd $SLURM_SUBMIT_DIR
 for sample_dir in trim_read_sample_dirs:
 
     sample = path.basename(sample_dir[:-1])
+    read_link_command = [
+    'cd',
+    '{}'.format(mapping_dir+"/"+sample),
+    ';',
+    'cp',
+    '-as',
+    '{}/*.fastq.gz'.format(sample_dir),
+    '.']
+    os.system(" ".join(read_link_command))
 
     new_mapping = mapping_template
     new_processing = processing_template
     new_slurm = slurm_header
         
-    keyList = ['PROCESSORS','COMPOSITE_GENOME','SCRIPT_DIR','SAMPLE','MAPPING_DIR','COMPOSITE_DIR','READS']
+    keyList = ['PROCESSORS','COMPOSITE_GENOME','SCRIPT_DIR','SAMPLE','MAPPING_DIR','COMPOSITE_DIR','READS','REF_TAB_SNPS','REF_SNPS']
     keyDict = {'PROCESSORS':str(processors),
                'COMPOSITE_GENOME':composite_dir+"/contigs.fa",
                'SCRIPT_DIR':script_dir,
                'SAMPLE':sample,
                'MAPPING_DIR':mapping_dir,
                'COMPOSITE_DIR':composite_dir,
-               'READS':",".join(glob(sample_dir+"*.fastq.gz"))}
+               'READS':",".join(glob(mapping_dir+"/"+sample+"/"+"*.fastq.gz")),
+               'REF_TAB_SNPS':ref_tab_snps,
+               'REF_SNPS':ref_snps}
     
     for key in keyList:
         new_mapping = new_mapping.replace(key,keyDict[key])
         new_processing = new_processing.replace(key,keyDict[key])
+        new_slurm = new_slurm.replace(key,keyDict[key])
 
     with open(mapping_dir+"/"+sample+"/"+sample+".sh", "w") as mapping_file:
             with open(mapping_dir+"/"+sample+"/Process_"+sample+".R", "w") as processing_file:
@@ -89,8 +101,7 @@ for sample_dir in trim_read_sample_dirs:
                 print(new_processing,file=processing_file)
                 
                 # Save mapping script
-                if check_slurm: 
-                    new_slurm = new_slurm.replace(key,keyDict[key])           
+                if check_slurm:            
                     try: 
                         args.modules
                         with open(args.modules,'r') as modules:
