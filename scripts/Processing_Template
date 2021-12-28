@@ -1,0 +1,253 @@
+library(tidyverse)
+library(rebus)
+library(argparse)
+library(testthat)
+library(doParallel)
+library(naturalsort)
+library(R.utils)
+
+#### Simple Functions #####
+
+remove_caret <- function(caret_string){
+  if(!str_detect(caret_string,fixed("^"))){
+    return(caret_string)
+  } else{
+    return(str_remove_all(caret_string,"\\^."))
+  }
+}
+
+remove_dollar <- function(dollar_string){
+  if(!str_detect(dollar_string,fixed("$"))){
+    return(dollar_string)
+  } else{
+    return(str_remove_all(dollar_string,"\\$"))
+  }
+}
+
+create_insertion_regex <- function(regex_insertion){
+  digits <- as.integer(str_extract_all(regex_insertion,"([0-9]+)"))
+  dots <- paste0(rep(".",digits),collapse = "")
+  return(paste0("\\+",as.character(digits),dots,collapse = ''))
+}
+
+create_deletion_regex <- function(regex_deletion){
+  digits <- as.integer(str_extract_all(regex_deletion,"([0-9]+)"))
+  dots <- paste0(rep(".",digits),collapse = "")
+  return(paste0("\\-",as.character(digits),dots,collapse = ''))
+}
+
+remove_insertions <- function(insertion_string){
+  if(!str_detect(insertion_string,fixed("+"))){
+    return(insertion_string)
+  } else{
+    insertion_list <- str_extract_all(insertion_string,"\\+([0-9]+)") %>% unlist()
+
+    for(insert in insertion_list){
+      insertion_string <- str_remove(insertion_string,create_insertion_regex(insert))
+    }
+    return(insertion_string)
+  }
+}
+
+remove_deletions <- function(deletion_string){
+
+  if(!str_detect(deletion_string,fixed("-"))){
+    return(deletion_string)
+  } else{
+    deletion_list <- str_extract_all(deletion_string,"\\-([0-9]+)") %>% unlist()
+    for(delete in deletion_list){
+      deletion_string <- str_remove(deletion_string,create_deletion_regex(delete))
+    }
+    return(deletion_string)
+  }
+}
+
+#### Row Function ####
+
+processPileups_Row <- function(path_to_pileup,row_num){
+
+  pileup_row <- read_tsv(path_to_pileup,col_types = 'cicicc',col_names = c('Scaffold','Position','Ref_Base','Coverage','Sample_Bases','Code'),skip=row_num - 1,n_max=1) %>%
+    select(-Code) %>%
+    mutate(Loc = paste0(Scaffold,"/",Position))
+
+  if(pileup_row$Coverage[1] == 0){
+
+    return(pileup_row %>%
+             mutate(Sample_Bases = NA,
+                    Allele_Count = 0,
+                    Variation = "No_Coverage",
+                    Sample_Base_1 = NA,
+                    Sample_Base_2 = NA,
+                    Sample_Base_3 = NA,
+                    Sample_Base_4 = NA,
+                    Sample_Base_5 = NA))
+  } else{
+
+    valid_pileup_chars <- char_class('A','a','C','c','G','g','T','t',fixed('*'))
+
+    pileup_row <- pileup_row %>%
+      mutate(Sample_Bases = remove_caret(Sample_Bases)) %>% # Remove ^* from Sample_Bases
+      mutate(Sample_Bases = remove_dollar(Sample_Bases)) %>% # Remove $ from Sample_Bases
+      mutate(Sample_Bases = remove_insertions(Sample_Bases)) %>% # Remove insertions from Sample_Bases
+      mutate(Sample_Bases = remove_deletions(Sample_Bases)) %>% # Remove deletions from Sample_Bases
+      mutate(Sample_Bases = str_replace_all(Sample_Bases,fixed("."),Ref_Base)) %>% # Replace periods with ref base
+      mutate(Sample_Bases = str_replace_all(Sample_Bases,fixed(","),Ref_Base)) %>% # Replace commas with ref base
+      mutate(Sample_Bases = toupper(Sample_Bases)) %>% # Make bases upper case
+      mutate(Allele_Count  = length(unique(unlist(str_extract_all(Sample_Bases,valid_pileup_chars)))))
+  }
+
+  if(pileup_row$Allele_Count[1] == 1){
+    return_pileup <- pileup_row %>%
+      mutate(Variation = "Homozygous",
+             Sample_Base_1 = str_sub(Sample_Bases,start=1,end=1),
+             Sample_Base_2 = NA,
+             Sample_Base_3 = NA,
+             Sample_Base_4 = NA,
+             Sample_Base_5 = NA)
+  } else if(pileup_row$Allele_Count[1] == 2){
+    return(pileup_row %>%
+             mutate(Variation = "Biallelic",
+                    Sample_Base_1 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=1,end=1),
+                    Sample_Base_2 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=2,end=2),
+                    Sample_Base_3 = NA,
+                    Sample_Base_4 = NA,
+                    Sample_Base_5 = NA))
+  } else if(pileup_row$Allele_Count[1] == 3){
+    return(pileup_row %>%
+             mutate(Variation = "Triallelic",
+                    Sample_Base_1 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=1,end=1),
+                    Sample_Base_2 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=2,end=2),
+                    Sample_Base_3 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=3,end=3),
+                    Sample_Base_4 = NA,
+                    Sample_Base_5 = NA))
+  } else if(pileup_row$Allele_Count[1] == 4){
+    return(pileup_row %>%
+             mutate(Variation = "Quadallelic",
+                    Sample_Base_1 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=1,end=1),
+                    Sample_Base_2 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=2,end=2),
+                    Sample_Base_3 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=3,end=3),
+                    Sample_Base_4 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=4,end=4),
+                    Sample_Base_5 = NA))
+  } else if(pileup_row$Allele_Count[1] == 5){
+    return(pileup_row %>%
+             mutate(Variation = "Pentallelic",
+                    Sample_Base_1 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=1,end=1),
+                    Sample_Base_2 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=2,end=2),
+                    Sample_Base_3 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=3,end=3),
+                    Sample_Base_4 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=4,end=4),
+                    Sample_Base_5 = str_sub(paste0(naturalsort(unique(unlist(str_split(Sample_Bases,"")))),collapse = ""),start=5,end=5)))
+  }
+}
+
+#### Called Function ####
+
+processPileups <- function(path_to_pileup){
+
+  # Read in file, strip code column, and add Loc column
+
+  row_count <- countLines(path_to_pileup)
+
+  # Set up parallel environment
+
+  cores_found <- parallel::detectCores()
+
+  if(cores_found == 1){
+    cores_used <- 1
+  } else{
+    cores_used <- cores_found - 1
+  }
+
+  pileups_cluster <- parallel::makeForkCluster(cores_used)
+  doParallel::registerDoParallel(pileups_cluster)
+
+  return_pileup <- foreach(i = 1:row_count,.combine='rbind') %dopar% { processPileups_Row(path_to_pileup,i) }
+
+  parallel::stopCluster(pileups_cluster)
+
+  return(return_pileup)
+}
+
+processPileups_Serial <- function(path_to_pileup){
+
+  # Read in file, strip code column, and add Loc column
+
+  row_count <- countLines(path_to_pileup)
+
+  # Set up parallel environment
+
+  cores_found <- parallel::detectCores()
+
+  if(cores_found == 1){
+    cores_used <- 1
+  } else{
+    cores_used <- cores_found - 1
+  }
+
+  pileups_cluster <- parallel::makeForkCluster(cores_used)
+  doParallel::registerDoParallel(pileups_cluster)
+
+  return_pileup <- foreach(i = 1:row_count,.combine='rbind') %do% { processPileups_Row(path_to_pileup,i) }
+
+  parallel::stopCluster(pileups_cluster)
+
+  return(return_pileup)
+}
+
+
+#### Main Function ####
+
+# Read in reference SNPs
+reference_snps <- read_tsv("REF_SNPS",col_names = c('Loc','LutCam_Base','LutPur_Base'))
+
+# Read in sample pileup data
+processed_pileup <- processPileups("Filtered_SAMPLE.pileups")
+write_tsv(processed_pileup,"SAMPLE_Processed_Pileup")
+
+pileup_df <- processed_pileup %>%
+  mutate(Sample = "SAMPLE") %>%
+  filter(Coverage > 0) %>%
+  select(Sample,Loc,Coverage,Sample_Bases,Variation) %>%
+  mutate(Sample_Bases = str_replace(Sample_Bases,fixed("*"),"-")) %>%
+  filter(Loc %in% reference_snps$Loc) %>%
+  left_join(reference_snps)
+
+snp_df <- pileup_df %>%
+  rowwise() %>%
+  mutate(LutCam_Match = ifelse(str_detect(Sample_Bases,LutCam_Base),TRUE,FALSE)) %>%
+  mutate(LutPur_Match = ifelse(str_detect(Sample_Bases,LutPur_Base),TRUE,FALSE)) %>%
+  mutate(Both = ifelse(LutCam_Match & LutPur_Match,TRUE,FALSE)) %>%
+  ungroup()
+
+# Process homozygous + biallelic SNPs
+homo_bi_snp_df <- snp_df %>% filter(Variation %in% c('Homozygous','Biallelic')) %>%
+  select(Sample,LutCam_Match,LutPur_Match,Both)
+
+homo_bi_coverage <- homo_bi_snp_df %>% group_by(Sample) %>% summarize(Total_Covered = n())
+
+homo_bi_match <- left_join(left_join(left_join(homo_bi_coverage,homo_bi_snp_df %>%
+                                                      group_by(Sample) %>%
+                                                      count(LutCam_Match) %>%
+                                                      filter(LutCam_Match) %>%
+                                                      select(-LutCam_Match) %>%
+                                                      rename(LutCam_Match = "n")),
+                                          left_join(homo_bi_coverage,homo_bi_snp_df %>%
+                                                      group_by(Sample) %>%
+                                                      count(LutPur_Match) %>%
+                                                      filter(LutPur_Match) %>%
+                                                      select(-LutPur_Match) %>%
+                                                      rename(LutPur_Match = "n"))),
+                                left_join(homo_bi_coverage,homo_bi_snp_df %>%
+                                            group_by(Sample) %>%
+                                            count(Both) %>%
+                                            filter(Both) %>%
+                                            select(-Both) %>%
+                                            rename(Both = "n"))) %>%
+  mutate(LutCam_Match = ifelse(is.na(LutCam_Match),0,LutCam_Match),
+         LutPur_Match = ifelse(is.na(LutPur_Match),0,LutPur_Match),
+         Both = ifelse(is.na(Both),0,Both)) %>%
+  mutate(Prop_LutCam_Match = (LutCam_Match - Both)/Total_Covered,
+         Prop_LutPur_Match = (LutPur_Match - Both)/Total_Covered,
+         Prop_Both = Both/Total_Covered) %>%
+  select(Sample,Total_Covered,Prop_LutCam_Match,Prop_LutPur_Match,Prop_Both)
+
+write_tsv(homo_bi_match,'SAMPLE_SNP_Data.tsv')

@@ -1,20 +1,20 @@
 cp -as COMPOSITE_DIR/ref .
 
 bbwrap.sh in=READS maxindel=99 strictmaxindel=t sam=1.3 ambiguous=toss out=SAMPLE.sam append=t
-samtools view -Su -@ PROCESSORS -F 4 SAMPLE.sam | samtools sort -@ PROCESSORS - -o SISRS_DIR/SAMPLE/SAMPLE.bam
-samtools mpileup -f COMPOSITE_GENOME SISRS_DIR/SAMPLE/SAMPLE.bam > SISRS_DIR/SAMPLE/SAMPLE.pileups
+samtools view -Su -@ PROCESSORS -F 4 SAMPLE.sam | samtools sort -@ PROCESSORS - -o MAPPING_DIR/SAMPLE/SAMPLE.bam
+samtools mpileup -f COMPOSITE_GENOME MAPPING_DIR/SAMPLE/SAMPLE.bam > MAPPING_DIR/SAMPLE/SAMPLE.pileups
 
-python SCRIPT_DIR/specific_genome.py SISRS_DIR/SAMPLE COMPOSITE_GENOME
+python SCRIPT_DIR/specific_genome.py MAPPING_DIR/SAMPLE COMPOSITE_GENOME
 
-samtools faidx SISRS_DIR/SAMPLE/contigs.fa
+samtools faidx MAPPING_DIR/SAMPLE/contigs.fa
 rm -rf ref SAMPLE.sam SAMPLE.bam
 bbmap.sh ref=contigs.fa
 
 bbwrap.sh in=READS maxindel=99 strictmaxindel=t sam=1.3 ambiguous=toss out=SAMPLE.sam append=t
-samtools view -Su -@ PROCESSORS -F 4 SAMPLE.sam | samtools sort -@ PROCESSORS - -o SISRS_DIR/SAMPLE/SAMPLE.bam
-samtools index SISRS_DIR/SAMPLE/SAMPLE.bam
+samtools view -Su -@ PROCESSORS -F 4 SAMPLE.sam | samtools sort -@ PROCESSORS - -o MAPPING_DIR/SAMPLE/SAMPLE.bam
+samtools index MAPPING_DIR/SAMPLE/SAMPLE.bam
 
-samtools mpileup -f COMPOSITE_GENOME SISRS_DIR/SAMPLE/SAMPLE.bam > SISRS_DIR/SAMPLE/SAMPLE.pileups
+samtools mpileup -f COMPOSITE_GENOME MAPPING_DIR/SAMPLE/SAMPLE.bam > MAPPING_DIR/SAMPLE/SAMPLE.pileups
 
 grep -wFf REF_TAB_SNPS SAMPLE.pileups > Filtered_SAMPLE.pileups
 
